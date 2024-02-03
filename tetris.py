@@ -6,6 +6,9 @@ import pygame #version 1.9.3
 import random
 import math
 import sys
+import copy
+import numpy as np
+import matplotlib.image
 
 pygame.init()
 pygame.font.init()
@@ -720,7 +723,32 @@ class MovingBlock:
 
 # BOT CLASS
 class Bot:
-	pass
+	
+	def __init__(self):
+		self.boardArr = None
+
+	def updateBoard(self, blockMat):
+		for i in range(len(blockMat)):
+			for j in range(len(blockMat[i])):
+				if blockMat[i][j] == "empty":
+					blockMat[i][j] = 0
+				else:
+					blockMat[i][j] = 1
+		self.boardArr = np.array(blockMat)
+		matplotlib.image.imsave('images/board.png', self.boardArr, cmap="brg")
+
+	def analyzeBoard(self):
+		self.checkLow()
+
+	def checkLow(self):
+		for row in self.boardArr:
+			for cell in row:
+				pass
+		
+	def drawBoard(self): # draw board after analysis
+		boardImage = pygame.image.load("images/board.png")
+		boardImage = pygame.transform.scale(boardImage, [100,200])
+		gameDisplay.blit(boardImage, [680, 380])
 
 # Main game loop		
 def gameLoop():		
@@ -736,6 +764,8 @@ def gameLoop():
 
 	mainBoard = MainBoard(blockSize,boardPosX,boardPosY,boardColNum,boardRowNum,boardLineWidth,blockLineWidth,scoreBoardWidth)	
 	
+	bot = Bot()
+
 	xChange = 0
 	
 	gameExit = False
@@ -802,7 +832,10 @@ def gameLoop():
 		mainBoard.gameAction() #Apply all the game actions here	
 		mainBoard.draw() #Draw the new board after game the new game actions
 		gameClock.update() #Increment the frame tick
-		
+
+		bot.updateBoard(copy.deepcopy(mainBoard.blockMat)) # update board each frame, pass by value
+		bot.drawBoard() # draw mini board with bot analysis
+
 		pygame.display.update() #Pygame display update		
 		clock.tick(60) #Pygame clock tick function(60 fps)
 
