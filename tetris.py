@@ -735,15 +735,31 @@ class Bot:
 				else:
 					blockMat[i][j] = 1
 		self.boardArr = np.array(blockMat)
+
+		self.analyzeBoard()
+
 		matplotlib.image.imsave('images/board.png', self.boardArr, cmap="brg")
 
-	def analyzeBoard(self):
+	def analyzeBoard(self): # currently being called every frame, only needs called once I believe
 		self.checkLow()
 
 	def checkLow(self):
-		for row in self.boardArr:
-			for cell in row:
-				pass
+		consecEmptyPerCol = [0 for _ in range(10)]
+		# want to iterate through columns, so we transpose the boardArr
+		for i, row in enumerate(np.transpose(self.boardArr)):
+			for j, cell in enumerate(row):
+				if cell == 0:
+					consecEmptyPerCol[i] += 1
+				else:
+					break
+
+		# edits board image to show low spots of interest
+		for i, val in enumerate(consecEmptyPerCol):
+			if val == max(consecEmptyPerCol):
+				self.boardArr[val-1][i] = 2
+
+
+		print(consecEmptyPerCol)
 		
 	def drawBoard(self): # draw board after analysis
 		boardImage = pygame.image.load("images/board.png")
