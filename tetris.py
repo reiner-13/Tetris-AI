@@ -726,6 +726,7 @@ class Bot:
 	
 	def __init__(self):
 		self.boardArr = None
+		self.colorMap = matplotlib.colors.LinearSegmentedColormap.from_list("custom", ["#333333", "#cc2222", "#006600", "#007700", "#008800", "#009900", "#00aa00", "#00bb00", "#00cc00", "#00dd00", "#00ff00"])
 
 	def updateBoard(self, blockMat):
 		for i in range(len(blockMat)):
@@ -738,7 +739,7 @@ class Bot:
 
 		self.analyzeBoard()
 
-		matplotlib.image.imsave('images/board.png', self.boardArr, cmap="brg")
+		matplotlib.image.imsave('images/board.png', self.boardArr, cmap=self.colorMap)
 
 	def analyzeBoard(self): # currently being called every frame, only needs called once I believe
 		self.checkLow()
@@ -755,11 +756,8 @@ class Bot:
 
 		# edits board image to show low spots of interest
 		for i, val in enumerate(consecEmptyPerCol):
-			if val == max(consecEmptyPerCol):
-				self.boardArr[val-1][i] = 2
+			self.boardArr[val-1][i] = 2 + sorted(list(set(consecEmptyPerCol))).index(val)
 
-
-		print(consecEmptyPerCol)
 		
 	def drawBoard(self): # draw board after analysis
 		boardImage = pygame.image.load("images/board.png")
@@ -850,7 +848,8 @@ def gameLoop():
 		gameClock.update() #Increment the frame tick
 
 		bot.updateBoard(copy.deepcopy(mainBoard.blockMat)) # update board each frame, pass by value
-		bot.drawBoard() # draw mini board with bot analysis
+		if mainBoard.score != 0:
+			bot.drawBoard() # draw mini board with bot analysis
 
 		pygame.display.update() #Pygame display update		
 		clock.tick(60) #Pygame clock tick function(60 fps)
