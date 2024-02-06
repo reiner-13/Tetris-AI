@@ -1,6 +1,6 @@
-#Tetris Game, written in Python 3.6.5
-#Version: 1.0
-#Date: 26.05.2018
+#Joseph Reiner
+#Written in Python 3.12.1
+#Tetris Bot
 
 import pygame #version 1.9.3
 import random
@@ -726,9 +726,10 @@ class Bot:
 	
 	def __init__(self):
 		self.boardArr = None
-		self.colorMap = matplotlib.colors.LinearSegmentedColormap.from_list("custom", ["#333333", "#cc2222", "#006600", "#007700", "#008800", "#009900", "#00aa00", "#00bb00", "#00cc00", "#00dd00", "#00ff00"])
+		self.colorMap = matplotlib.colors.LinearSegmentedColormap.from_list("custom", ["#333333", "#cc2222", "#006600", "#087700", "#108800", "#189900", "#20aa00", "#28bb00", "#30cc00", "#38dd00", "#40ff00"])
+		self.priorityList = [0 for _ in range(10)]
 
-	def updateBoard(self, blockMat):
+	def updateBoard(self, blockMat, movingPiece):
 		for i in range(len(blockMat)):
 			for j in range(len(blockMat[i])):
 				if blockMat[i][j] == "empty":
@@ -738,11 +739,24 @@ class Bot:
 		self.boardArr = np.array(blockMat)
 
 		self.analyzeBoard()
+		self.movement(movingPiece)
 
 		matplotlib.image.imsave('images/board.png', self.boardArr, cmap=self.colorMap)
 
 	def analyzeBoard(self): # currently being called every frame, only needs called once I believe
 		self.checkLow()
+
+	def movement(self, movingPiece):
+		for a in movingPiece.blocks:
+			print(a.currentPos.row, a.currentPos.col)
+		print(f"MOVING PIECE ROW: {movingPiece.blocks[0].currentPos.col}", f"DESTINATION: {self.priorityList.index(max(self.priorityList))}")
+		if movingPiece.blocks[3].currentPos.col < self.priorityList.index(max(self.priorityList)):
+			key.xNav.status = 'right'
+		elif movingPiece.blocks[0].currentPos.col > self.priorityList.index(max(self.priorityList)):
+			key.xNav.status = 'left'
+		else:
+			#key.down.status = 'pressed'
+			key.xNav.status = 'idle'
 
 	def checkLow(self):
 		consecEmptyPerCol = [0 for _ in range(10)]
@@ -757,7 +771,7 @@ class Bot:
 		# edits board image to show low spots of interest
 		for i, val in enumerate(consecEmptyPerCol):
 			self.boardArr[val-1][i] = 2 + sorted(list(set(consecEmptyPerCol))).index(val)
-
+			self.priorityList[i] = self.boardArr[val-1][i]
 		
 	def drawBoard(self): # draw board after analysis
 		boardImage = pygame.image.load("images/board.png")
@@ -847,7 +861,7 @@ def gameLoop():
 		mainBoard.draw() #Draw the new board after game the new game actions
 		gameClock.update() #Increment the frame tick
 
-		bot.updateBoard(copy.deepcopy(mainBoard.blockMat)) # update board each frame, pass by value
+		bot.updateBoard(copy.deepcopy(mainBoard.blockMat), mainBoard.piece) # update board each frame, pass by value
 		if mainBoard.score != 0:
 			bot.drawBoard() # draw mini board with bot analysis
 
