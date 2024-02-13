@@ -744,7 +744,8 @@ class Bot:
 		matplotlib.image.imsave('images/board.png', self.boardArr, cmap=self.colorMap)
 
 	def analyzeBoard(self): # currently being called every frame, only needs called once I believe
-		self.checkLow()
+		#self.checkLow()
+		pass
 
 	def movement(self, movingPiece):
 		for a in movingPiece.blocks:
@@ -757,26 +758,75 @@ class Bot:
 		else:
 			#key.down.status = 'pressed'
 			key.xNav.status = 'idle'
+	
+	def rotation(self, type):
+		# CHECK TYPE OF PIECE
+		# for i in range(number of orientations)
+		# DO CHECK(S) FOR EACH ORIENTATION
+		# DETERMINE BEST OUTCOME FROM priorityList
+		pass
 
-	def checkLow(self):
-		consecEmptyPerCol = [0 for _ in range(10)]
-		# want to iterate through columns, so we transpose the boardArr
-		for i, row in enumerate(np.transpose(self.boardArr)):
-			for j, cell in enumerate(row):
-				if cell == 0:
-					consecEmptyPerCol[i] += 1
-				else:
-					break
+	# def checkLow(self):
+	# 	consecEmptyPerCol = [0 for _ in range(10)]
+	# 	# want to iterate through columns, so we transpose the boardArr
+	# 	for i, row in enumerate(np.transpose(self.boardArr)):
+	# 		for j, cell in enumerate(row):
+	# 			if cell == 0:
+	# 				consecEmptyPerCol[i] += 1
+	# 			else:
+	# 				break
 
-		# edits board image to show low spots of interest
-		for i, val in enumerate(consecEmptyPerCol):
-			self.boardArr[val-1][i] = 2 + sorted(list(set(consecEmptyPerCol))).index(val)
-			self.priorityList[i] = self.boardArr[val-1][i]
+	# 	# edits board image to show low spots of interest
+	# 	for i, val in enumerate(consecEmptyPerCol):
+	# 		self.boardArr[val-1][i] = 2 + sorted(list(set(consecEmptyPerCol))).index(val)
+	# 		self.priorityList[i] = self.boardArr[val-1][i]
 		
 	def drawBoard(self): # draw board after analysis
 		boardImage = pygame.image.load("images/board.png")
 		boardImage = pygame.transform.scale(boardImage, [100,200])
 		gameDisplay.blit(boardImage, [680, 380])
+
+
+class Genetic:
+	pass
+
+# MINIMAX SEARCHING ALGORITHM
+# STATIC EVALUATION FUNCTION
+# Genetic algorithm used to find weights for heuristic evaluation function.
+class SearchTree:
+
+	def __init__(self):
+		self.treeDepth = 2
+
+	def heuristicEvaluation(self, board):
+		pass
+	
+	# https://www.geeksforgeeks.org/minimax-algorithm-in-game-theory-set-4-alpha-beta-pruning/
+	def minimax(self, board, max, currentDepth, nodeIndex): # max is maximizer's turn; not max is minimizer's turn
+		# will add alpha beta pruning later
+	
+		if currentDepth == self.treeDepth:
+			return self.heuristicEvaluation(board)
+		
+		if max:
+			best = -10000
+			for i in range(0, 2): # do twice for left and right branches/children
+
+				val = self.minimax(board, False, currentDepth + 1, nodeIndex * 2 + i)
+
+				best = max(best, val)
+				return best
+			
+		else:
+			best = 10000
+			for i in range(0, 2):
+
+				val = self.minimax(board, True, currentDepth + 1, nodeIndex * 2 + i)
+
+				best = min(best, val)
+				return best
+				
+
 
 # Main game loop		
 def gameLoop():		
