@@ -719,15 +719,28 @@ class MovingBlock:
 		def __init__(self,row,col):
 			self.row = row
 			self.col = col	
-		
+
+
+class TreeNode:
+
+	def __init__(self, data):
+		self.data = data
+		self.parent = None
+		self.children = []
+
 
 # BOT CLASS
 class Bot:
 	
+	
+
 	def __init__(self):
-		self.boardArr = None
+		self.boardArr = None # current board layout in a numpy 2d array
 		self.colorMap = matplotlib.colors.LinearSegmentedColormap.from_list("custom", ["#333333", "#cc2222", "#006600", "#087700", "#108800", "#189900", "#20aa00", "#28bb00", "#30cc00", "#38dd00", "#40ff00"])
 		self.priorityList = [0 for _ in range(10)]
+		self.maxIterations = 100 # maybe make static?
+		self.tabuListSize = 10 # maybe make static?
+		
 
 	def updateBoard(self, blockMat, movingPiece):
 		for i in range(len(blockMat)):
@@ -738,19 +751,16 @@ class Bot:
 					blockMat[i][j] = 1
 		self.boardArr = np.array(blockMat)
 
-		self.analyzeBoard()
-		self.movement(movingPiece)
+		#self.tabuSearch(TreeNode())
+		#self.movement(movingPiece)
+		print(self.boardArr)
 
-		matplotlib.image.imsave('images/board.png', self.boardArr, cmap=self.colorMap)
-
-	def analyzeBoard(self): # currently being called every frame, only needs called once I believe
-		#self.checkLow()
-		pass
+		matplotlib.image.imsave('images/board.png', self.boardArr, cmap=self.colorMap) # maybe change to bestSolution out of tabuSearch()
 
 	def movement(self, movingPiece):
-		for a in movingPiece.blocks:
-			print(a.currentPos.row, a.currentPos.col)
-		print(f"MOVING PIECE ROW: {movingPiece.blocks[0].currentPos.col}", f"DESTINATION: {self.priorityList.index(max(self.priorityList))}")
+		# for a in movingPiece.blocks:
+		# 	print(a.currentPos.row, a.currentPos.col)
+		# print(f"MOVING PIECE ROW: {movingPiece.blocks[0].currentPos.col}", f"DESTINATION: {self.priorityList.index(max(self.priorityList))}")
 		if movingPiece.blocks[3].currentPos.col < self.priorityList.index(max(self.priorityList)):
 			key.xNav.status = 'right'
 		elif movingPiece.blocks[0].currentPos.col > self.priorityList.index(max(self.priorityList)):
@@ -763,23 +773,68 @@ class Bot:
 		# CHECK TYPE OF PIECE
 		# for i in range(number of orientations)
 		# DO CHECK(S) FOR EACH ORIENTATION
-		# DETERMINE BEST OUTCOME FROM priorityList
 		pass
 
-	# def checkLow(self):
-	# 	consecEmptyPerCol = [0 for _ in range(10)]
-	# 	# want to iterate through columns, so we transpose the boardArr
-	# 	for i, row in enumerate(np.transpose(self.boardArr)):
-	# 		for j, cell in enumerate(row):
-	# 			if cell == 0:
-	# 				consecEmptyPerCol[i] += 1
-	# 			else:
-	# 				break
+	def getColumnHeights(self, nodeData):
+		consecEmptyPerCol = [0 for _ in range(10)]
+		# want to iterate through columns, so we transpose the nodeData array
+		for i, row in enumerate(np.transpose(nodeData)):
+			for j, cell in enumerate(row):
+				if cell == 0:
+					consecEmptyPerCol[i] += 1
+				else:
+					break
+		return 20 - consecEmptyPerCol
 
-	# 	# edits board image to show low spots of interest
-	# 	for i, val in enumerate(consecEmptyPerCol):
-	# 		self.boardArr[val-1][i] = 2 + sorted(list(set(consecEmptyPerCol))).index(val)
-	# 		self.priorityList[i] = self.boardArr[val-1][i]
+	def checkLow(self):
+		# edits board image to show low spots of interest
+		for i, val in enumerate(self.columnHeights):
+			self.boardArr[val-1][i] = 2 + sorted(list(set(self.columnHeights))).index(val)
+			self.priorityList[i] = self.boardArr[val-1][i]
+
+	def objFunc(self, solution : TreeNode):
+		self.columnHeights = self.getColumnHeights(solution.data)
+		return sum(self.columnHeights) / len(self.columnHeights) # avg columnHeights
+	
+	def getNeighbors(self, solution : TreeNode):
+		if len(solution.children) == 0: # leaf node
+			return solution.parent
+		elif solution.parent is None: # root is parent
+			return solution.children
+		else:
+			return solution.children.append(solution.parent) # I don't think this fires
+		
+	def tabuSearch(self, initialSolution): # https://www.geeksforgeeks.org/what-is-tabu-search/
+		bestSolution = initialSolution
+		currentSolution = initialSolution
+		tabuList = []
+
+		for _ in range(self.maxIterations):
+			neighbors = self.getNeighbors(currentSolution)
+			bestNeighbor = None
+			bestNeighborFitness = float('inf')
+
+			for neighbor in neighbors:
+				if neighbor not in tabuList:
+					neighborFitness = self.objFunc(neighbor)
+					if neighborFitness < bestNeighborFitness:
+						bestNeighbor = neighbor
+						bestNeighborFitness = neighborFitness
+
+			if bestNeighbor is None:
+				break
+
+			currentSolution = bestNeighbor
+			tabuList.append(bestNeighbor)
+
+			if len(tabuList) > self.tabuListSize:
+				tabuList.pop(0)
+			
+			if self.objFunc(bestNeighbor) < self.objFunc(bestSolution):
+				bestSolution = bestNeighbor
+
+		return bestSolution
+
 		
 	def drawBoard(self): # draw board after analysis
 		boardImage = pygame.image.load("images/board.png")
@@ -787,45 +842,6 @@ class Bot:
 		gameDisplay.blit(boardImage, [680, 380])
 
 
-class Genetic:
-	pass
-
-# MINIMAX SEARCHING ALGORITHM
-# STATIC EVALUATION FUNCTION
-# Genetic algorithm used to find weights for heuristic evaluation function.
-class SearchTree:
-
-	def __init__(self):
-		self.treeDepth = 2
-
-	def heuristicEvaluation(self, board):
-		pass
-	
-	# https://www.geeksforgeeks.org/minimax-algorithm-in-game-theory-set-4-alpha-beta-pruning/
-	def minimax(self, board, max, currentDepth, nodeIndex): # max is maximizer's turn; not max is minimizer's turn
-		# will add alpha beta pruning later
-	
-		if currentDepth == self.treeDepth:
-			return self.heuristicEvaluation(board)
-		
-		if max:
-			best = -10000
-			for i in range(0, 2): # do twice for left and right branches/children
-
-				val = self.minimax(board, False, currentDepth + 1, nodeIndex * 2 + i)
-
-				best = max(best, val)
-				return best
-			
-		else:
-			best = 10000
-			for i in range(0, 2):
-
-				val = self.minimax(board, True, currentDepth + 1, nodeIndex * 2 + i)
-
-				best = min(best, val)
-				return best
-				
 
 
 # Main game loop		
