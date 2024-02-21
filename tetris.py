@@ -732,17 +732,16 @@ class TreeNode:
 # BOT CLASS
 class Bot:
 	
-	
-
 	def __init__(self):
 		self.boardArr = None # current board layout in a numpy 2d array
 		self.colorMap = matplotlib.colors.LinearSegmentedColormap.from_list("custom", ["#333333", "#cc2222", "#006600", "#087700", "#108800", "#189900", "#20aa00", "#28bb00", "#30cc00", "#38dd00", "#40ff00"])
 		self.priorityList = [0 for _ in range(10)]
 		self.maxIterations = 100 # maybe make static?
 		self.tabuListSize = 10 # maybe make static?
+		self.checkedPositions = [] # list of numpy 2d arrays
 		
 
-	def updateBoard(self, blockMat, movingPiece):
+	def updateBoard(self, blockMat, movingPiece, nextPieces):
 		for i in range(len(blockMat)):
 			for j in range(len(blockMat[i])):
 				if blockMat[i][j] == "empty":
@@ -750,10 +749,12 @@ class Bot:
 				else:
 					blockMat[i][j] = 1
 		self.boardArr = np.array(blockMat)
-
+		self.movingPiece = movingPiece
+		self.nextPieces = nextPieces # nextPieces[0] is current piece, nextPieces[1] is next piece, ... potential to add more 'next' pieces
+		self.maxTreeDepth = len(nextPieces) # 2 because you can only see current piece and next piece
+		
 		#self.tabuSearch(TreeNode())
 		#self.movement(movingPiece)
-		print(self.boardArr)
 
 		matplotlib.image.imsave('images/board.png', self.boardArr, cmap=self.colorMap) # maybe change to bestSolution out of tabuSearch()
 
@@ -792,6 +793,27 @@ class Bot:
 			self.boardArr[val-1][i] = 2 + sorted(list(set(self.columnHeights))).index(val)
 			self.priorityList[i] = self.boardArr[val-1][i]
 
+	def createTree(self):
+		treeRoot = TreeNode(self.boardArr)
+
+		self.getPossiblePositions(treeRoot, 0, self.movingPiece) # starts at root with current moving piece
+	
+	def getPossiblePositions(self, root, depth, currentPiece): # recursive function that creates the nodes and links them (UNFINISHED)
+		# base case
+		if depth == 2: # OR if there's no possible positions available
+			return
+		
+		newPosition = self.generatePosition(root.data, currentPiece)
+		newNode = TreeNode(newPosition)
+		root.children.append(newNode)
+
+		self.getPossiblePositions(newNode, depth + 1, self.nextPieces[depth])
+		
+	def generatePosition(self, data, currentPiece): 
+		pass
+		
+		
+	# TABU SEARCH FUNCTIONS
 	def objFunc(self, solution : TreeNode):
 		self.columnHeights = self.getColumnHeights(solution.data)
 		return sum(self.columnHeights) / len(self.columnHeights) # avg columnHeights
@@ -799,7 +821,7 @@ class Bot:
 	def getNeighbors(self, solution : TreeNode):
 		if len(solution.children) == 0: # leaf node
 			return solution.parent
-		elif solution.parent is None: # root is parent
+		elif solution.parent is None: # root
 			return solution.children
 		else:
 			return solution.children.append(solution.parent) # I don't think this fires
@@ -927,7 +949,7 @@ def gameLoop():
 		mainBoard.draw() #Draw the new board after game the new game actions
 		gameClock.update() #Increment the frame tick
 
-		bot.updateBoard(copy.deepcopy(mainBoard.blockMat), mainBoard.piece) # update board each frame, pass by value
+		bot.updateBoard(copy.deepcopy(mainBoard.blockMat), mainBoard.piece, mainBoard.nextPieces) # update board each frame, pass by value
 		if mainBoard.score != 0:
 			bot.drawBoard() # draw mini board with bot analysis
 
