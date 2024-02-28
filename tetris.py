@@ -724,9 +724,11 @@ class MovingBlock:
 class TreeNode:
 
 	def __init__(self, data):
-		self.data = data
+		self.data = data # currently numpy 2d arrays
 		self.parent = None
 		self.children = []
+		self.evaluation = 0 # i think
+		self.coords = [0,0]
 
 
 # BOT CLASS
@@ -739,6 +741,8 @@ class Bot:
 		self.maxIterations = 100 # maybe make static?
 		self.tabuListSize = 10 # maybe make static?
 		self.checkedPositions = [] # list of numpy 2d arrays
+		self.targetPosition = [0,0]
+		self.searchTree = None
 		
 
 	def updateBoard(self, blockMat, movingPiece, nextPieces):
@@ -748,13 +752,19 @@ class Bot:
 					blockMat[i][j] = 0
 				else:
 					blockMat[i][j] = 1
+		self.botBlockMat = blockMat
 		self.boardArr = np.array(blockMat)
 		self.movingPiece = movingPiece
 		self.nextPieces = nextPieces # nextPieces[0] is current piece, nextPieces[1] is next piece, ... potential to add more 'next' pieces
 		self.maxTreeDepth = len(nextPieces) # 2 because you can only see current piece and next piece
-		
+		#for block in self.movingPiece.blocks:
+			#print(block.currentPos.row, block.currentPos.col)
 		#self.tabuSearch(TreeNode())
-		#self.movement(movingPiece)
+		
+		self.createTree()
+		bestNode = self.chooseBest()
+		self.targetPosition = bestNode.coords
+		self.movement(movingPiece)
 
 		matplotlib.image.imsave('images/board.png', self.boardArr, cmap=self.colorMap) # maybe change to bestSolution out of tabuSearch()
 
@@ -762,12 +772,12 @@ class Bot:
 		# for a in movingPiece.blocks:
 		# 	print(a.currentPos.row, a.currentPos.col)
 		# print(f"MOVING PIECE ROW: {movingPiece.blocks[0].currentPos.col}", f"DESTINATION: {self.priorityList.index(max(self.priorityList))}")
-		if movingPiece.blocks[3].currentPos.col < self.priorityList.index(max(self.priorityList)):
+		if movingPiece.blocks[0].currentPos.col < self.targetPosition[1]:
 			key.xNav.status = 'right'
-		elif movingPiece.blocks[0].currentPos.col > self.priorityList.index(max(self.priorityList)):
+		elif movingPiece.blocks[0].currentPos.col > self.targetPosition[1]:
 			key.xNav.status = 'left'
 		else:
-			#key.down.status = 'pressed'
+			key.down.status = 'pressed'
 			key.xNav.status = 'idle'
 	
 	def rotation(self, type):
@@ -777,15 +787,16 @@ class Bot:
 		pass
 
 	def getColumnHeights(self, nodeData):
-		consecEmptyPerCol = [0 for _ in range(10)]
+		consecEmptyPerCol = [20 for _ in range(10)]
 		# want to iterate through columns, so we transpose the nodeData array
 		for i, row in enumerate(np.transpose(nodeData)):
 			for j, cell in enumerate(row):
 				if cell == 0:
-					consecEmptyPerCol[i] += 1
+					consecEmptyPerCol[i] -= 1
 				else:
 					break
-		return 20 - consecEmptyPerCol
+	
+		return consecEmptyPerCol
 
 	def checkLow(self):
 		# edits board image to show low spots of interest
@@ -797,26 +808,106 @@ class Bot:
 		treeRoot = TreeNode(self.boardArr)
 
 		self.getPossiblePositions(treeRoot, 0, self.movingPiece) # starts at root with current moving piece
+
+		for childNode in treeRoot.children:
+			childNode.evaluation = self.objFunc(childNode)
+			
+
+		self.searchTree = treeRoot
 	
 	def getPossiblePositions(self, root, depth, currentPiece): # recursive function that creates the nodes and links them (UNFINISHED)
 		# base case
 		if depth == 2: # OR if there's no possible positions available
 			return
 		
-		newPosition = self.generatePosition(root.data, currentPiece)
-		newNode = TreeNode(newPosition)
-		root.children.append(newNode)
+		targetPositions = self.generatePosition(root, currentPiece)
+		print("All possible current:\n" + str(targetPositions))
 
-		self.getPossiblePositions(newNode, depth + 1, self.nextPieces[depth])
+		for tar in targetPositions:
+			newNodeData = copy.deepcopy(root.data)
+
+			for pos in currentPiece.currentDef:
+				newNodeData[tar[0] + pos[0], tar[1] + pos[1]] = 1
+
+			print(tar)
+			newNode = TreeNode(newNodeData)
+			newNode.coords = tar
+			# newNode.def?
+			root.children.append(newNode)
 		
-	def generatePosition(self, data, currentPiece): 
-		pass
+
+		#newNode = TreeNode(newPosition)
+		#root.children.append(newNode)
+
+		#self.getPossiblePositions(newNode, depth + 1, self.nextPieces[depth])
 		
+	def generatePosition(self, root, currentPiece): # generates positions given currentPiece
 		
+		targetPositions = []
+		defCols = [x[1] for x in currentPiece.currentDef]
+		colCount = 9 - max(defCols)
+
+		defPositions = currentPiece.currentDef
+		if 0 not in defCols: # if there's a gap in column 0 of definition
+			for pos in defPositions:
+				pos[1] -= 1
+		
+		#print("TYPE: " + currentPiece.type)
+		for j in range(colCount):
+			for i in range(20):
+				target = False
+				startPos = (i, j)
+
+				for pos in defPositions:
+					#print(f"startPos[0]: {startPos[0]}\npos[0]: {pos[0]}\nstartPos[1]: {startPos[1]}\npos[1]: {pos[1]}\n")
+					if startPos[0] + pos[0] >= 20 or startPos[1] + pos[1] >= 10:
+						
+						target = True
+						targetPositions.append([i-1, j])
+						break
+					if root.data[startPos[0] + pos[0]][startPos[1] + pos[1]] == 0:
+						continue
+					else:
+						target = True
+						targetPositions.append([i-1, j]) # previous start position
+						break
+				
+				if target:
+					break
+
+					
+		return targetPositions # should it be 2d array board instead?
+		
+	def chooseBest(self): # TEMPORARY FOR NOW
+		bestEvaluation = 10000
+		bestChild = TreeNode(None)
+
+		for child in self.searchTree.children:
+			print(child.evaluation)
+			if child.evaluation < bestEvaluation:
+				bestEvaluation = child.evaluation
+				bestChild = child
+		
+		print(f"Best child: {bestChild.evaluation} \t\t {bestChild.coords}")
+		return bestChild
+
+		
+
+
+
 	# TABU SEARCH FUNCTIONS
 	def objFunc(self, solution : TreeNode):
 		self.columnHeights = self.getColumnHeights(solution.data)
-		return sum(self.columnHeights) / len(self.columnHeights) # avg columnHeights
+		avgColumnHeight = sum(self.columnHeights) / len(self.columnHeights)
+
+		bumpiness = 0
+		for i in range(len(self.columnHeights)):
+			if i + 1 >= len(self.columnHeights):
+				break
+			bumpiness += abs(self.columnHeights[i] - self.columnHeights[i+1])
+		print("avgHeight: " + str(avgColumnHeight) + "  bump: " + str(bumpiness))
+		print(avgColumnHeight + bumpiness)
+		return avgColumnHeight + bumpiness
 	
 	def getNeighbors(self, solution : TreeNode):
 		if len(solution.children) == 0: # leaf node
