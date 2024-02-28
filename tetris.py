@@ -729,6 +729,8 @@ class TreeNode:
 		self.children = []
 		self.evaluation = 0 # i think
 		self.coords = [0,0]
+		self.avgColumnHeight = 0
+		self.bumpiness = 0
 
 
 # BOT CLASS
@@ -766,18 +768,36 @@ class Bot:
 		self.targetPosition = bestNode.coords
 		self.movement(movingPiece)
 
+		avgHeightSurf = fontSmall.render(f"Avg Height: {bestNode.avgColumnHeight}", False, (200,200,200))
+		bumpinessSurf = fontSmall.render(f"Bumpiness: {bestNode.bumpiness}", False, (200, 200, 200))
+		evaluationSurf = fontSB.render(f"Evaluation: {bestNode.evaluation}", False, (200, 200, 200))
+
+		gameDisplay.blit(avgHeightSurf, [650, 220])
+		gameDisplay.blit(bumpinessSurf, [650, 240])
+		gameDisplay.blit(evaluationSurf, [650, 260])
+
+		for pos in movingPiece.currentDef:
+			self.boardArr[self.targetPosition[0] + pos[0], self.targetPosition[1] + pos[1]] = 10
+
 		matplotlib.image.imsave('images/board.png', self.boardArr, cmap=self.colorMap) # maybe change to bestSolution out of tabuSearch()
 
 	def movement(self, movingPiece):
 		# for a in movingPiece.blocks:
 		# 	print(a.currentPos.row, a.currentPos.col)
 		# print(f"MOVING PIECE ROW: {movingPiece.blocks[0].currentPos.col}", f"DESTINATION: {self.priorityList.index(max(self.priorityList))}")
-		if movingPiece.blocks[0].currentPos.col < self.targetPosition[1]:
+		cols = []
+		for block in movingPiece.blocks:
+			cols.append(block.currentPos.col)
+		
+		leftMostBlock = cols.index(min(cols))
+
+
+		if movingPiece.blocks[leftMostBlock].currentPos.col < self.targetPosition[1]:
 			key.xNav.status = 'right'
-		elif movingPiece.blocks[0].currentPos.col > self.targetPosition[1]:
+		elif movingPiece.blocks[leftMostBlock].currentPos.col > self.targetPosition[1]:
 			key.xNav.status = 'left'
 		else:
-			key.down.status = 'pressed'
+			#key.down.status = 'pressed'
 			key.xNav.status = 'idle'
 	
 	def rotation(self, type):
@@ -898,16 +918,15 @@ class Bot:
 	# TABU SEARCH FUNCTIONS
 	def objFunc(self, solution : TreeNode):
 		self.columnHeights = self.getColumnHeights(solution.data)
-		avgColumnHeight = sum(self.columnHeights) / len(self.columnHeights)
+		solution.avgColumnHeight = sum(self.columnHeights) / len(self.columnHeights)
 
-		bumpiness = 0
 		for i in range(len(self.columnHeights)):
 			if i + 1 >= len(self.columnHeights):
 				break
-			bumpiness += abs(self.columnHeights[i] - self.columnHeights[i+1])
-		print("avgHeight: " + str(avgColumnHeight) + "  bump: " + str(bumpiness))
-		print(avgColumnHeight + bumpiness)
-		return avgColumnHeight + bumpiness
+			solution.bumpiness += abs(self.columnHeights[i] - self.columnHeights[i+1])
+		print("avgHeight: " + str(solution.avgColumnHeight) + "  bump: " + str(solution.bumpiness))
+		print(solution.avgColumnHeight + solution.bumpiness)
+		return solution.avgColumnHeight + solution.bumpiness
 	
 	def getNeighbors(self, solution : TreeNode):
 		if len(solution.children) == 0: # leaf node
