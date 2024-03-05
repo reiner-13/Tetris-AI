@@ -731,6 +731,8 @@ class TreeNode:
 		self.coords = [0,0]
 		self.avgColumnHeight = 0
 		self.bumpiness = 0
+		self.holes = 0
+		self.orientation = 0
 
 
 # BOT CLASS
@@ -745,46 +747,59 @@ class Bot:
 		self.checkedPositions = [] # list of numpy 2d arrays
 		self.targetPosition = [0,0]
 		self.searchTree = None
+		self.bestNode = TreeNode(None)
+		self.orientation = 0
 		
 
-	def updateBoard(self, blockMat, movingPiece, nextPieces):
+	def updateBoard(self, blockMat, movingPiece, nextPieces, gameStatus):
 		for i in range(len(blockMat)):
 			for j in range(len(blockMat[i])):
 				if blockMat[i][j] == "empty":
 					blockMat[i][j] = 0
 				else:
 					blockMat[i][j] = 1
-		self.botBlockMat = blockMat
+		#self.botBlockMat = blockMat
 		self.boardArr = np.array(blockMat)
 		self.movingPiece = movingPiece
 		self.nextPieces = nextPieces # nextPieces[0] is current piece, nextPieces[1] is next piece, ... potential to add more 'next' pieces
+		self.gameStatus = gameStatus
 		self.maxTreeDepth = len(nextPieces) # 2 because you can only see current piece and next piece
+
+		avgHeightSurf = fontSmall.render(f"Avg Height: {self.bestNode.avgColumnHeight}", False, (200,200,200))
+		bumpinessSurf = fontSmall.render(f"Bumpiness: {self.bestNode.bumpiness}", False, (200, 200, 200))
+		holeSurf = fontSmall.render(f"Holes: {self.bestNode.holes}", False, (200, 200, 200))
+		evaluationSurf = fontSB.render(f"Evaluation: {self.bestNode.evaluation}", False, (200, 200, 200))
+		
+		gameDisplay.blit(avgHeightSurf, [650, 220])
+		gameDisplay.blit(bumpinessSurf, [650, 240])
+		gameDisplay.blit(holeSurf, [650, 260])
+		gameDisplay.blit(evaluationSurf, [650, 280])
+		
 		#for block in self.movingPiece.blocks:
 			#print(block.currentPos.row, block.currentPos.col)
 		#self.tabuSearch(TreeNode())
 		
-		self.createTree()
-		bestNode = self.chooseBest()
-		self.targetPosition = bestNode.coords
-		self.movement(movingPiece)
+	def run(self):
+		if self.gameStatus == 'running':
+			self.orientation = 0
+			self.createTree()
+			self.bestNode = self.chooseBest()
+			self.targetPosition = self.bestNode.coords
+			#self.movement(self.movingPiece)
 
-		avgHeightSurf = fontSmall.render(f"Avg Height: {bestNode.avgColumnHeight}", False, (200,200,200))
-		bumpinessSurf = fontSmall.render(f"Bumpiness: {bestNode.bumpiness}", False, (200, 200, 200))
-		evaluationSurf = fontSB.render(f"Evaluation: {bestNode.evaluation}", False, (200, 200, 200))
+			
 
-		gameDisplay.blit(avgHeightSurf, [650, 220])
-		gameDisplay.blit(bumpinessSurf, [650, 240])
-		gameDisplay.blit(evaluationSurf, [650, 260])
+			#for pos in self.movingPiece.currentDef:
+				#self.boardArr[self.targetPosition[0] + pos[0]][ self.targetPosition[1] + pos[1]] = 10
 
-		for pos in movingPiece.currentDef:
-			self.boardArr[self.targetPosition[0] + pos[0], self.targetPosition[1] + pos[1]] = 10
-
-		matplotlib.image.imsave('images/board.png', self.boardArr, cmap=self.colorMap) # maybe change to bestSolution out of tabuSearch()
+			matplotlib.image.imsave('images/board.png', self.boardArr, cmap=self.colorMap) # maybe change to bestSolution out of tabuSearch()
 
 	def movement(self, movingPiece):
-		# for a in movingPiece.blocks:
-		# 	print(a.currentPos.row, a.currentPos.col)
-		# print(f"MOVING PIECE ROW: {movingPiece.blocks[0].currentPos.col}", f"DESTINATION: {self.priorityList.index(max(self.priorityList))}")
+		
+		while self.orientation != self.bestNode.orientation:
+			self.orientation += 1
+			movingPiece.rotate('CW')
+		
 		cols = []
 		for block in movingPiece.blocks:
 			cols.append(block.currentPos.col)
@@ -800,11 +815,6 @@ class Bot:
 			#key.down.status = 'pressed'
 			key.xNav.status = 'idle'
 	
-	def rotation(self, type):
-		# CHECK TYPE OF PIECE
-		# for i in range(number of orientations)
-		# DO CHECK(S) FOR EACH ORIENTATION
-		pass
 
 	def getColumnHeights(self, nodeData):
 		consecEmptyPerCol = [20 for _ in range(10)]
@@ -826,8 +836,9 @@ class Bot:
 
 	def createTree(self):
 		treeRoot = TreeNode(self.boardArr)
-
-		self.getPossiblePositions(treeRoot, 0, self.movingPiece) # starts at root with current moving piece
+		
+		self.getPossiblePositions(treeRoot, 0, copy.deepcopy(self.movingPiece)) # starts at root with current moving piece
+		print(f"TYPE: {self.movingPiece.type}")
 
 		for childNode in treeRoot.children:
 			childNode.evaluation = self.objFunc(childNode)
@@ -840,19 +851,47 @@ class Bot:
 		if depth == 2: # OR if there's no possible positions available
 			return
 		
-		targetPositions = self.generatePosition(root, currentPiece)
+		targetPositions = []
+		orientations = 0
+		if self.movingPiece.type == 'O':
+			orientations = 1
+		elif self.movingPiece.type == 'S' or self.movingPiece.type == 'Z':
+			orientations = 2
+		else:
+			orientations = 4
+		
+		orientationMap = {}
+		for orientation in range(orientations):
+			print(f"ORIENTATION: {currentPiece.currentDef}")
+			newPositions = self.generatePosition(root, currentPiece)
+			targetPositions += newPositions # concatenate lists
+			
+			orientationMap[len(targetPositions) - len(newPositions)] = [orientation, currentPiece.currentDef]
+			currentPiece.rotate('CW')
+		
 		print("All possible current:\n" + str(targetPositions))
+		print(orientationMap)
 
-		for tar in targetPositions:
+		mappedOrientation = 0
+		currentKey = 0
+		for i, tar in enumerate(targetPositions):
+
+			if i in orientationMap.keys():
+				mappedOrientation = orientationMap[i][0]
+				currentKey = i
+
 			newNodeData = copy.deepcopy(root.data)
+			for pos in orientationMap[currentKey][1]:
+				print("LOOKY:", tar, pos, mappedOrientation)
+				if tar in targetPositions:
+					newNodeData[tar[0] + pos[0]][tar[1] + pos[1]] = 1
 
-			for pos in currentPiece.currentDef:
-				newNodeData[tar[0] + pos[0], tar[1] + pos[1]] = 1
-
-			print(tar)
 			newNode = TreeNode(newNodeData)
 			newNode.coords = tar
-			# newNode.def?
+			
+			
+
+			newNode.orientation = mappedOrientation
 			root.children.append(newNode)
 		
 
@@ -880,11 +919,17 @@ class Bot:
 
 				for pos in defPositions:
 					#print(f"startPos[0]: {startPos[0]}\npos[0]: {pos[0]}\nstartPos[1]: {startPos[1]}\npos[1]: {pos[1]}\n")
-					if startPos[0] + pos[0] >= 20 or startPos[1] + pos[1] >= 10:
-						
+					#print("blahblah", (i,j), startPos[0] + pos[0], startPos[1] + pos[1])
+					if startPos[0] + pos[0] >= 20:
+						adjustment = startPos[0] + pos[0] - 20
 						target = True
-						targetPositions.append([i-1, j])
+						print("20: i, j", (i,j), startPos[0] + pos[0])
+						targetPositions.append([i-adjustment-1, j])
 						break
+					if startPos[1] + pos[1] >= 10:
+						target = True
+						print("10: i, j", (i,j), startPos[1] + pos[1])
+						targetPositions.append([i, j-1])
 					if root.data[startPos[0] + pos[0]][startPos[1] + pos[1]] == 0:
 						continue
 					else:
@@ -908,7 +953,7 @@ class Bot:
 				bestEvaluation = child.evaluation
 				bestChild = child
 		
-		print(f"Best child: {bestChild.evaluation} \t\t {bestChild.coords}")
+		print(f"Best child: {bestChild.evaluation} \t\t {bestChild.coords} \t\t {bestChild.orientation}")
 		return bestChild
 
 		
@@ -917,16 +962,42 @@ class Bot:
 
 	# TABU SEARCH FUNCTIONS
 	def objFunc(self, solution : TreeNode):
+		# AVERAGE HEIGHT
 		self.columnHeights = self.getColumnHeights(solution.data)
 		solution.avgColumnHeight = sum(self.columnHeights) / len(self.columnHeights)
 
+		# BUMPINESS
 		for i in range(len(self.columnHeights)):
 			if i + 1 >= len(self.columnHeights):
 				break
 			solution.bumpiness += abs(self.columnHeights[i] - self.columnHeights[i+1])
-		print("avgHeight: " + str(solution.avgColumnHeight) + "  bump: " + str(solution.bumpiness))
-		print(solution.avgColumnHeight + solution.bumpiness)
-		return solution.avgColumnHeight + solution.bumpiness
+
+		# HOLES
+		holeCount = 0
+		flag = False
+		for row in np.transpose(solution.data):
+			for val in row:
+				
+				if val == 0 and not flag:
+					continue
+				if val != 0:
+					flag = True
+				if val == 0 and flag:
+					holeCount += 1
+			flag = False
+		print(holeCount)
+		solution.holes = holeCount
+
+		# LINE COMPLETION
+		lineCount = 0
+		for row in solution.data:
+			if all(i == 1 for i in row):
+				lineCount -= 1
+
+		print("AT: ", solution.coords)
+		print("avgHeight: " + str(solution.avgColumnHeight) + "  bump: " + str(solution.bumpiness) + "  holes: " + str(solution.holes) + "  lines: " + str(lineCount) + "  orient: " + str(solution.orientation))
+		print(solution.avgColumnHeight + solution.bumpiness + solution.holes + lineCount)
+		return solution.avgColumnHeight*2 + solution.bumpiness*3 + solution.holes*5 + lineCount*4
 	
 	def getNeighbors(self, solution : TreeNode):
 		if len(solution.children) == 0: # leaf node
@@ -991,6 +1062,7 @@ def gameLoop():
 	mainBoard = MainBoard(blockSize,boardPosX,boardPosY,boardColNum,boardRowNum,boardLineWidth,blockLineWidth,scoreBoardWidth)	
 	
 	bot = Bot()
+	runCount = 0
 
 	xChange = 0
 	
@@ -1059,7 +1131,16 @@ def gameLoop():
 		mainBoard.draw() #Draw the new board after game the new game actions
 		gameClock.update() #Increment the frame tick
 
-		bot.updateBoard(copy.deepcopy(mainBoard.blockMat), mainBoard.piece, mainBoard.nextPieces) # update board each frame, pass by value
+		bot.updateBoard(copy.deepcopy(mainBoard.blockMat), mainBoard.piece, mainBoard.nextPieces, mainBoard.gameStatus) # update board each frame, pass by value
+		#print(prevPiece, mainBoard.piece)
+		if mainBoard.piece.status == "moving" and runCount == 0:
+			bot.run()
+			runCount = 1
+		if mainBoard.piece.status == "uncreated":
+			runCount = 0
+		
+		bot.movement(mainBoard.piece)
+
 		if mainBoard.score != 0:
 			bot.drawBoard() # draw mini board with bot analysis
 
