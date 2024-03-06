@@ -774,9 +774,8 @@ class Bot:
 		gameDisplay.blit(bumpinessSurf, [650, 240])
 		gameDisplay.blit(holeSurf, [650, 260])
 		gameDisplay.blit(evaluationSurf, [650, 280])
+
 		
-		#for block in self.movingPiece.blocks:
-			#print(block.currentPos.row, block.currentPos.col)
 		#self.tabuSearch(TreeNode())
 		
 	def run(self):
@@ -785,7 +784,6 @@ class Bot:
 			self.createTree()
 			self.bestNode = self.chooseBest()
 			self.targetPosition = self.bestNode.coords
-			#self.movement(self.movingPiece)
 
 			
 
@@ -812,7 +810,7 @@ class Bot:
 		elif movingPiece.blocks[leftMostBlock].currentPos.col > self.targetPosition[1]:
 			key.xNav.status = 'left'
 		else:
-			#key.down.status = 'pressed'
+			key.down.status = 'pressed'
 			key.xNav.status = 'idle'
 	
 
@@ -836,12 +834,13 @@ class Bot:
 
 	def createTree(self):
 		treeRoot = TreeNode(self.boardArr)
-		
-		self.getPossiblePositions(treeRoot, 0, copy.deepcopy(self.movingPiece)) # starts at root with current moving piece
+		currentPiece = copy.deepcopy(self.movingPiece)
+
+		self.getPossiblePositions(treeRoot, 0, currentPiece) # starts at root with current moving piece
 		print(f"TYPE: {self.movingPiece.type}")
 
 		for childNode in treeRoot.children:
-			childNode.evaluation = self.objFunc(childNode)
+			childNode.evaluation = self.objFunc(childNode, currentPiece)
 			
 
 		self.searchTree = treeRoot
@@ -855,18 +854,19 @@ class Bot:
 		orientations = 0
 		if self.movingPiece.type == 'O':
 			orientations = 1
-		elif self.movingPiece.type == 'S' or self.movingPiece.type == 'Z':
+		elif self.movingPiece.type == 'S' or self.movingPiece.type == 'Z' or self.movingPiece.type == 'I':
 			orientations = 2
 		else:
 			orientations = 4
 		
 		orientationMap = {}
 		for orientation in range(orientations):
-			print(f"ORIENTATION: {currentPiece.currentDef}")
+			
 			newPositions = self.generatePosition(root, currentPiece)
 			targetPositions += newPositions # concatenate lists
+			print(f"ORIENTATION: {currentPiece.currentDef}")
 			
-			orientationMap[len(targetPositions) - len(newPositions)] = [orientation, currentPiece.currentDef]
+			orientationMap[len(targetPositions) - len(newPositions)] = [orientation, copy.deepcopy(currentPiece.currentDef)]
 			currentPiece.rotate('CW')
 		
 		print("All possible current:\n" + str(targetPositions))
@@ -903,13 +903,21 @@ class Bot:
 	def generatePosition(self, root, currentPiece): # generates positions given currentPiece
 		
 		targetPositions = []
-		defCols = [x[1] for x in currentPiece.currentDef]
-		colCount = 9 - max(defCols)
+		
 
 		defPositions = currentPiece.currentDef
-		if 0 not in defCols: # if there's a gap in column 0 of definition
+		gap = 0
+		defCols = [x[1] for x in defPositions]
+		while 0 not in defCols: # if there's a gap in column 0 of definition
+			gap += 1
+			if gap < 5:
+				print("gap", gap, defPositions, defCols)
 			for pos in defPositions:
 				pos[1] -= 1
+			defCols = [x[1] for x in defPositions]
+		
+		colCount = 10 - max(defCols)
+		
 		
 		#print("TYPE: " + currentPiece.type)
 		for j in range(colCount):
@@ -921,10 +929,10 @@ class Bot:
 					#print(f"startPos[0]: {startPos[0]}\npos[0]: {pos[0]}\nstartPos[1]: {startPos[1]}\npos[1]: {pos[1]}\n")
 					#print("blahblah", (i,j), startPos[0] + pos[0], startPos[1] + pos[1])
 					if startPos[0] + pos[0] >= 20:
-						adjustment = startPos[0] + pos[0] - 20
+						
 						target = True
 						print("20: i, j", (i,j), startPos[0] + pos[0])
-						targetPositions.append([i-adjustment-1, j])
+						targetPositions.append([i-1-gap, j])
 						break
 					if startPos[1] + pos[1] >= 10:
 						target = True
@@ -934,7 +942,7 @@ class Bot:
 						continue
 					else:
 						target = True
-						targetPositions.append([i-1, j]) # previous start position
+						targetPositions.append([i-1-gap, j]) # previous start position
 						break
 				
 				if target:
@@ -961,7 +969,7 @@ class Bot:
 
 
 	# TABU SEARCH FUNCTIONS
-	def objFunc(self, solution : TreeNode):
+	def objFunc(self, solution : TreeNode, currentPiece):
 		# AVERAGE HEIGHT
 		self.columnHeights = self.getColumnHeights(solution.data)
 		solution.avgColumnHeight = sum(self.columnHeights) / len(self.columnHeights)
@@ -985,7 +993,7 @@ class Bot:
 				if val == 0 and flag:
 					holeCount += 1
 			flag = False
-		print(holeCount)
+		
 		solution.holes = holeCount
 
 		# LINE COMPLETION
@@ -994,10 +1002,14 @@ class Bot:
 			if all(i == 1 for i in row):
 				lineCount -= 1
 
+		bonus = 0
+		#if (currentPiece.type == 'S' or currentPiece.type == 'Z' or currentPiece.type == 'T') and solution.orientation == 1:
+			#bonus = -100
+
 		print("AT: ", solution.coords)
 		print("avgHeight: " + str(solution.avgColumnHeight) + "  bump: " + str(solution.bumpiness) + "  holes: " + str(solution.holes) + "  lines: " + str(lineCount) + "  orient: " + str(solution.orientation))
 		print(solution.avgColumnHeight + solution.bumpiness + solution.holes + lineCount)
-		return solution.avgColumnHeight*2 + solution.bumpiness*3 + solution.holes*5 + lineCount*4
+		return solution.avgColumnHeight*1 + solution.bumpiness*0.4 + solution.holes*1 + lineCount*30 + bonus
 	
 	def getNeighbors(self, solution : TreeNode):
 		if len(solution.children) == 0: # leaf node
