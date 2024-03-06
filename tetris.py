@@ -9,6 +9,9 @@ import sys
 import copy
 import numpy as np
 import matplotlib.image
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import json
 
 pygame.init()
 pygame.font.init()
@@ -749,6 +752,15 @@ class Bot:
 		self.searchTree = None
 		self.bestNode = TreeNode(None)
 		self.orientation = 0
+
+		self.avgHeightWeight = 0
+		self.bumpinessWeight = 0
+		self.holesWeight = 0
+	
+	def setRandomWeights(self):
+		self.avgHeightWeight = random.random()
+		self.bumpinessWeight = random.random()
+		self.holesWeight = random.random()
 		
 
 	def updateBoard(self, blockMat, movingPiece, nextPieces, gameStatus):
@@ -784,7 +796,6 @@ class Bot:
 			self.createTree()
 			self.bestNode = self.chooseBest()
 			self.targetPosition = self.bestNode.coords
-
 			
 
 			#for pos in self.movingPiece.currentDef:
@@ -836,8 +847,9 @@ class Bot:
 		treeRoot = TreeNode(self.boardArr)
 		currentPiece = copy.deepcopy(self.movingPiece)
 
-		self.getPossiblePositions(treeRoot, 0, currentPiece) # starts at root with current moving piece
 		print(f"TYPE: {self.movingPiece.type}")
+		self.getPossiblePositions(treeRoot, 0, currentPiece) # starts at root with current moving piece
+		
 
 		for childNode in treeRoot.children:
 			childNode.evaluation = self.objFunc(childNode, currentPiece)
@@ -845,7 +857,7 @@ class Bot:
 
 		self.searchTree = treeRoot
 	
-	def getPossiblePositions(self, root, depth, currentPiece): # recursive function that creates the nodes and links them (UNFINISHED)
+	def getPossiblePositions(self, root, depth, currentPiece):
 		# base case
 		if depth == 2: # OR if there's no possible positions available
 			return
@@ -864,7 +876,7 @@ class Bot:
 			
 			newPositions = self.generatePosition(root, currentPiece)
 			targetPositions += newPositions # concatenate lists
-			print(f"ORIENTATION: {currentPiece.currentDef}")
+			#print(f"ORIENTATION: {currentPiece.currentDef}")
 			
 			orientationMap[len(targetPositions) - len(newPositions)] = [orientation, copy.deepcopy(currentPiece.currentDef)]
 			currentPiece.rotate('CW')
@@ -882,7 +894,7 @@ class Bot:
 
 			newNodeData = copy.deepcopy(root.data)
 			for pos in orientationMap[currentKey][1]:
-				print("LOOKY:", tar, pos, mappedOrientation)
+				#print("LOOKY:", tar, pos, mappedOrientation)
 				if tar in targetPositions:
 					newNodeData[tar[0] + pos[0]][tar[1] + pos[1]] = 1
 
@@ -910,8 +922,6 @@ class Bot:
 		defCols = [x[1] for x in defPositions]
 		while 0 not in defCols: # if there's a gap in column 0 of definition
 			gap += 1
-			if gap < 5:
-				print("gap", gap, defPositions, defCols)
 			for pos in defPositions:
 				pos[1] -= 1
 			defCols = [x[1] for x in defPositions]
@@ -931,12 +941,12 @@ class Bot:
 					if startPos[0] + pos[0] >= 20:
 						
 						target = True
-						print("20: i, j", (i,j), startPos[0] + pos[0])
+						#print("20: i, j", (i,j), startPos[0] + pos[0])
 						targetPositions.append([i-1-gap, j])
 						break
 					if startPos[1] + pos[1] >= 10:
 						target = True
-						print("10: i, j", (i,j), startPos[1] + pos[1])
+						#print("10: i, j", (i,j), startPos[1] + pos[1])
 						targetPositions.append([i, j-1])
 					if root.data[startPos[0] + pos[0]][startPos[1] + pos[1]] == 0:
 						continue
@@ -1006,10 +1016,10 @@ class Bot:
 		#if (currentPiece.type == 'S' or currentPiece.type == 'Z' or currentPiece.type == 'T') and solution.orientation == 1:
 			#bonus = -100
 
-		print("AT: ", solution.coords)
-		print("avgHeight: " + str(solution.avgColumnHeight) + "  bump: " + str(solution.bumpiness) + "  holes: " + str(solution.holes) + "  lines: " + str(lineCount) + "  orient: " + str(solution.orientation))
+		#print("AT: ", solution.coords)
+		#print("avgHeight: " + str(solution.avgColumnHeight) + "  bump: " + str(solution.bumpiness) + "  holes: " + str(solution.holes) + "  lines: " + str(lineCount) + "  orient: " + str(solution.orientation))
 		print(solution.avgColumnHeight + solution.bumpiness + solution.holes + lineCount)
-		return solution.avgColumnHeight*1 + solution.bumpiness*0.4 + solution.holes*1 + lineCount*30 + bonus
+		return solution.avgColumnHeight*self.avgHeightWeight + solution.bumpiness*self.bumpinessWeight + solution.holes*self.holesWeight + lineCount*10 + bonus
 	
 	def getNeighbors(self, solution : TreeNode):
 		if len(solution.children) == 0: # leaf node
@@ -1075,6 +1085,11 @@ def gameLoop():
 	
 	bot = Bot()
 	runCount = 0
+	bestTestScore = 4984
+	testAvgHeights = []
+	testBumpiness = []
+	testHoles = []
+	testScores = []
 
 	xChange = 0
 	
@@ -1144,7 +1159,7 @@ def gameLoop():
 		gameClock.update() #Increment the frame tick
 
 		bot.updateBoard(copy.deepcopy(mainBoard.blockMat), mainBoard.piece, mainBoard.nextPieces, mainBoard.gameStatus) # update board each frame, pass by value
-		#print(prevPiece, mainBoard.piece)
+		
 		if mainBoard.piece.status == "moving" and runCount == 0:
 			bot.run()
 			runCount = 1
@@ -1155,6 +1170,45 @@ def gameLoop():
 
 		if mainBoard.score != 0:
 			bot.drawBoard() # draw mini board with bot analysis
+
+		
+
+		if mainBoard.gameStatus == "gameOver":
+			
+			if mainBoard.score >= bestTestScore:
+				with open("high-scores.txt", "a") as f:
+					f.write(f"SCORE: {mainBoard.score}\t\tLINES: {mainBoard.lines}\n")
+					f.write(f"avgHeight: {bot.avgHeightWeight}\t\tbumpiness: {bot.bumpinessWeight}\t\tholes: {bot.holesWeight}\n")
+					bestTestScore = mainBoard.score
+
+			key.enter.status = 'pressed'
+
+			testAvgHeights.append(bot.avgHeightWeight)
+			testBumpiness.append(bot.bumpinessWeight)
+			testHoles.append(bot.holesWeight)
+			testScores.append(mainBoard.score)
+			
+			with open('test-data.json') as f:
+				testData = json.load(f)
+			
+			testData["avgHeight"].append(bot.avgHeightWeight)
+			testData["bumpiness"].append(bot.bumpinessWeight)
+			testData["holes"].append(bot.holesWeight)
+			testData["score"].append(mainBoard.score)
+			print(testData)
+			with open('test-data.json', 'w') as f:
+				json.dump(testData, f)
+			
+			fig = plt.figure()
+			ax = fig.add_subplot(111, projection='3d')
+
+			img = ax.scatter(testAvgHeights, testBumpiness, testHoles, c=testScores, cmap=plt.cool())
+			fig.colorbar(img)
+			plt.savefig("images/test-scores.png")
+
+
+			bot.setRandomWeights()
+
 
 		pygame.display.update() #Pygame display update		
 		clock.tick(60) #Pygame clock tick function(60 fps)
