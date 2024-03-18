@@ -10,3 +10,17 @@ SCORE: 2909		LINES: 23
 avgHeight: 0.6978400941816157		bumpiness: 0.49159755631846114		holes: 0.508382297279505
 SCORE: 4984		LINES: 25
 avgHeight: 0.8954520573978367		bumpiness: 0.2219614277705182		holes: 0.42876214576503136
+SCORE: 59257		LINES: 157
+avgHeight: 0.8		bumpiness: 0.2		holes: 0.9
+SCORE: 63216		LINES: 160
+avgHeight: 0.8		bumpiness: 0.2		holes: 0.9
+SCORE: 90734		LINES: 197
+avgHeight: 0.8		bumpiness: 0.2		holes: 0.9
+SCORE: 92381		LINES: 195
+avgHeight: 0.8		bumpiness: 0.2		holes: 0.9
+SCORE: 287999		LINES: 345
+avgHeight: 0.8		bumpiness: 0.2		holes: 0.9
+SCORE: 648313		LINES: 541
+avgHeight: 0.8		bumpiness: 0.2		holes: 0.9
+SCORE: 1505918		LINES: 803
+avgHeight: 0.8		bumpiness: 0.2		holes: 0.9		lines: 0.5897760241498506
