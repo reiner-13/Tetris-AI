@@ -765,12 +765,14 @@ class Bot:
 		self.tree = Tree()
 		self.tree.create_node("root", 0)
 		self.testRuns = 0
+
+		self.prevBestNode = None
 	
 	def setRandomWeights(self):
-		self.avgHeightWeight = 0.8
-		self.bumpinessWeight = 0.2
-		self.holesWeight = 0.9
-		self.lineWeight = -0.545
+		self.avgHeightWeight = 1.392
+		self.bumpinessWeight = 0.861
+		self.holesWeight = 4.540
+		self.lineWeight = -0.193
 		
 
 	def updateBoard(self, blockMat, movingPiece, nextPieces, gameStatus):
@@ -791,7 +793,7 @@ class Bot:
 		bumpinessSurf = fontSmall.render(f"Bumpiness: {self.bestNode.bumpiness}", False, (200, 200, 200))
 		holeSurf = fontSmall.render(f"Holes: {self.bestNode.holes}", False, (200, 200, 200))
 		evaluationSurf = fontSB.render(f"Evaluation: {self.bestNode.evaluation}", False, (200, 200, 200))
-		testRunsSurf = fontSB.render(f"Test6 Runs: {self.testRuns}", False, (200, 200, 200))
+		testRunsSurf = fontSB.render(f"Test7 Runs: {self.testRuns}", False, (200, 200, 200))
 		
 		gameDisplay.blit(avgHeightSurf, [650, 220])
 		gameDisplay.blit(bumpinessSurf, [650, 240])
@@ -820,7 +822,9 @@ class Bot:
 			else:
 				self.bestNode = self.chooseBest()
 				if self.bestNode.parent != None:
+					self.prevBestNode = copy.deepcopy(self.bestNode)
 					self.bestNode = self.bestNode.parent
+					
 
 			#self.bestNode = self.chooseBest() # GET RID OF GET RID OF REPLACE WITH TABU
 			self.targetPosition = self.bestNode.coords
@@ -882,7 +886,6 @@ class Bot:
 		return consecEmptyPerCol
 
 	def checkLow(self):
-		# edits board image to show low spots of interest
 		for i, val in enumerate(self.columnHeights):
 			self.boardArr[val-1][i] = 2 + sorted(list(set(self.columnHeights))).index(val)
 			self.priorityList[i] = self.boardArr[val-1][i]
@@ -900,7 +903,6 @@ class Bot:
 			currentPiece = self.nextPiece
 		
 
-		#print(f"TYPE: {self.movingPiece.type}")
 		self.getPossiblePositions(newRoot, currentPiece) # starts at root with current moving piece
 		if depth == 0:
 			self.initRootChildren = len(newRoot.children)
@@ -908,10 +910,7 @@ class Bot:
 		if depth == 1:
 			self.depth1Children = len(newRoot.children)
 			self.depth1 += 1
-		
-		
 
-		#print("D=0:", self.depth0, self.initRootChildren, "D=1:", self.depth1, self.depth1Children, self.totalCompleted, depth)
 
 		for childNode in newRoot.children:
 			self.totalCompleted += 1
@@ -921,10 +920,8 @@ class Bot:
 			elif depth == 1:
 				self.tree.create_node("depth1 " + str(childNode.evaluation) + f" {childNode}"[29:-1], f"{childNode}"[29:-1], parent=f"{childNode.parent}"[29:-1])
 			
-			
 			self.createTree(childNode, depth+1)
 			
-		
 		self.searchTree = newRoot
 	
 	def getPossiblePositions(self, root, currentPiece):
@@ -984,7 +981,6 @@ class Bot:
 		
 		targetPositions = []
 		
-
 		defPositions = currentPiece.currentDef
 		gap = 0
 		defRows = [x[0] for x in defPositions]
@@ -1002,15 +998,12 @@ class Bot:
 		colCount = 10 - max(defCols)
 		
 		
-		#print("TYPE: " + currentPiece.type)
 		for j in range(colCount):
 			for i in range(20):
 				target = False
 				startPos = (i, j)
 
 				for pos in defPositions:
-					#print(f"startPos[0]: {startPos[0]}\npos[0]: {pos[0]}\nstartPos[1]: {startPos[1]}\npos[1]: {pos[1]}\n")
-					#print("blahblah", (i,j), startPos[0] + pos[0], startPos[1] + pos[1])
 					if startPos[0] + pos[0] >= 20:
 						
 						target = True
@@ -1031,10 +1024,9 @@ class Bot:
 				if target:
 					break
 
-					
-		return targetPositions # should it be 2d array board instead?
+		return targetPositions
 		
-	def chooseBest(self): # TEMPORARY FOR NOW
+	def chooseBest(self):
 		bestEvaluation = 10000
 		bestChild = TreeNode(None)
 
@@ -1044,7 +1036,6 @@ class Bot:
 					bestEvaluation = grandchild.evaluation
 					bestChild = grandchild
 		
-		#print(f"Best child: {bestChild.evaluation} \t\t {bestChild.coords} \t\t {bestChild.orientation}")
 		return bestChild
 
 		
@@ -1061,6 +1052,12 @@ class Bot:
 				lineCount += 1
 				solution.data = np.delete(solution.data, i, 0)
 				solution.data = np.insert(solution.data, 0, np.array((0,0,0,0,0,0,0,0,0,0)), 0) # removes lines
+		if lineCount == 2:
+			lineCount = 2.5
+		elif lineCount == 3:
+			lineCount = 7.5
+		elif lineCount == 4:
+			lineCount = 30
 
 		# AVERAGE HEIGHT
 		self.columnHeights = self.getColumnHeights(solution.data)
@@ -1088,15 +1085,13 @@ class Bot:
 		
 		solution.holes = holeCount
 
+		# PREV POSITION BONUS
+		if self.prevBestNode is not None and solution.coords == self.prevBestNode.coords and solution.orientation == self.prevBestNode.orientation:
+			prevPosBonus = 0
+		else:
+			prevPosBonus = 0
 
-		bonus = 0
-		#if (currentPiece.type == 'S' or currentPiece.type == 'Z' or currentPiece.type == 'T') and solution.orientation == 1:
-			#bonus = -100
-
-		#print("AT: ", solution.coords)
-		#print("avgHeight: " + str(solution.avgColumnHeight) + "  bump: " + str(solution.bumpiness) + "  holes: " + str(solution.holes) + "  lines: " + str(lineCount) + "  orient: " + str(solution.orientation))
-		#print(solution.avgColumnHeight + solution.bumpiness + solution.holes + lineCount)
-		return solution.avgColumnHeight*self.avgHeightWeight + solution.bumpiness*self.bumpinessWeight + solution.holes*self.holesWeight + lineCount*self.lineWeight + bonus
+		return solution.avgColumnHeight*self.avgHeightWeight + solution.bumpiness*self.bumpinessWeight + solution.holes*self.holesWeight + lineCount*self.lineWeight + prevPosBonus
 	
 	def getNeighbors(self, solution : TreeNode):
 		if len(solution.children) == 0: # leaf node
@@ -1164,7 +1159,7 @@ def gameLoop():
 	
 	bot = Bot()
 	runCount = 0
-	bestTestScore = 1505918
+	bestTestScore = 4204300
 	testAvgHeights = []
 	testBumpiness = []
 	testHoles = []
@@ -1267,7 +1262,7 @@ def gameLoop():
 			testHoles.append(bot.holesWeight)
 			testScores.append(mainBoard.score)
 			
-			with open('test6-data.json') as f:
+			with open('test7-data.json') as f:
 				testData = json.load(f)
 				bot.testRuns = len(testData["score"])
 			
@@ -1277,7 +1272,7 @@ def gameLoop():
 			testData["lines"].append(bot.lineWeight)
 			testData["score"].append(mainBoard.score)
 			
-			with open('test6-data.json', 'w') as f:
+			with open('test7-data.json', 'w') as f:
 				json.dump(testData, f)
 
 
@@ -1285,7 +1280,7 @@ def gameLoop():
 
 
 		pygame.display.update() #Pygame display update		
-		clock.tick(60) #Pygame clock tick function(60 fps)
+		clock.tick(480) #Pygame clock tick function(60 fps)
 
 # Main program
 key = GameKeyInput()		
