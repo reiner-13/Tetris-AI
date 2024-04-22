@@ -2,11 +2,13 @@ from tetris import *
 import sys
 import copy
 import bot
+import pygad
 
-# Main game loop		
-def gameLoop():		
-	"""Main loop that runs the game."""
-
+def gameLoop(solution):		
+	"""
+	Main loop that runs game.
+	Returns score as fitness to GA.
+	"""
 	blockSize = 20 
 	boardColNum = 10 
 	boardRowNum = 20
@@ -19,6 +21,7 @@ def gameLoop():
 	mainBoard = MainBoard(blockSize,boardPosX,boardPosY,boardColNum,boardRowNum,boardLineWidth,blockLineWidth,scoreBoardWidth)	
 	
 	tBot = bot.Bot()
+	tBot.setWeights(solution)
 	
 	gameSpeed = 600
 	
@@ -49,7 +52,6 @@ def gameLoop():
 					key.restart.status = 'idle'
 				if event.key == pygame.K_RETURN:
 					key.enter.status = 'idle'
-			
 		
 		gameDisplay.fill(BLACK) #Whole screen is painted black in every iteration before any other drawings occur 
 			
@@ -70,9 +72,61 @@ def gameLoop():
 		if mainBoard.score != 0:
 			tBot.drawBoard(gameDisplay) # draw mini board with bot analysis
 
-		pygame.display.update() #Pygame display update
-		clock.tick(gameSpeed) #Pygame clock tick function (default is 60 fps)
+		if mainBoard.gameStatus == "gameOver":
+			key.enter.status = 'pressed'
+			return mainBoard.score
 
-gameLoop()	
+
+		pygame.display.update() #Pygame display update
+		clock.tick(gameSpeed) #Pygame clock tick function(60 fps)
+		
+
+def fitness_func(ga_instance, solution, solution_idx):
+	score = gameLoop(solution)
+	return score
+
+def on_gen(ga_instance):
+	print("Generation: ", ga_instance.generations_completed)
+	print("Fitness of best solution: ", ga_instance.best_solution())
+
+
+function_inputs = [1, 1, 1, -1]
+
+num_generations = 100
+num_parents_mating = 5
+
+sol_per_pop = 10
+num_genes = len(function_inputs)
+
+init_range_low = 0
+init_range_high = 1
+
+parent_selection_type = "sss"
+keep_parents = 1
+
+crossover_type = "single_point"
+mutation_type = "random"
+mutation_probability = 0.005
+
+ga_instance = pygad.GA(num_generations=num_generations,
+                       num_parents_mating=num_parents_mating,
+                       fitness_func=fitness_func,
+                       sol_per_pop=sol_per_pop,
+                       num_genes=num_genes,
+                       init_range_low=init_range_low,
+                       init_range_high=init_range_high,
+                       parent_selection_type=parent_selection_type,
+                       crossover_type=crossover_type,
+                       mutation_type=mutation_type,
+                       mutation_probability=mutation_probability,
+                       on_generation=on_gen)
+
+ga_instance.run()
+
+solution, solution_fitness, solution_idx = ga_instance.best_solution()
+print("Parameters of the best solution : {solution}".format(solution=solution))
+print("Fitness value of the best solution = {solution_fitness}".format(solution_fitness=solution_fitness))
+
+
 pygame.quit()
 sys.exit()

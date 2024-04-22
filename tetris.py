@@ -2,12 +2,9 @@
 #Written in Python 3.12.1
 #Tetris Bot
 
-import pygame #version 1.9.3
+import pygame #version 2.5.2
 import random
 import math
-import sys
-import copy
-import bot
 
 pygame.init()
 pygame.font.init()
@@ -92,9 +89,10 @@ baseLinePoints = (0,40,100,300,1200)
 #Total score is calculated as: Score = level*baseLinePoints[clearedLineNumberAtATime] + totalDropCount
 #Drop means the action the player forces the piece down instead of free fall(By key combinations: down, down-left, down-rigth arrows)
 
-#Class for the game input keys and their status
+
 class GameKeyInput:
-	
+	"""Class for the game input keys and their status"""
+
 	def __init__(self):
 		self.xNav = self.KeyName('idle',False) # 'left' 'right'
 		self.down = self.KeyName('idle',False) # 'pressed' 'released'
@@ -112,8 +110,9 @@ class GameKeyInput:
 				
 key = GameKeyInput()
 
-#Class for the game's timing events
+
 class GameClock:
+	"""Class for the game's timing events"""
 	
 	def __init__(self):
 		self.frameTick = 0 #The main clock tick of the game, increments at each frame (1/60 secs, 60 fps)
@@ -152,9 +151,9 @@ class GameClock:
 
 gameClock = GameClock()	
 
-# Class for all the game mechanics, visuals and events
-class MainBoard:
 
+class MainBoard:
+	"""Class for all the game mechanics, visuals and events"""
 	def __init__(self,blockSize,xPos,yPos,colNum,rowNum,boardLineWidth,blockLineWidth,scoreBoardWidth):
 		
 		#Size and position initiations
@@ -491,8 +490,9 @@ class MainBoard:
 			if key.enter.status == 'pressed':
 				self.restart()
 				
-# Class for all the definitions of current moving piece
+
 class MovingPiece:
+	"""Class for all the definitions of current moving piece"""
 
 	def __init__(self,colNum,rowNum,status):
 
@@ -701,9 +701,8 @@ class MovingPiece:
 		#else: # 'collided'			
 
 
-# Class for the blocks of the moving piece. Each piece is made of 4 blocks in Tetris game		
 class MovingBlock:
-
+	"""Class for the blocks of the moving piece. Each piece is made of 4 blocks in Tetris game."""
 	def __init__(self):
 
 		self.currentPos = self.CurrentPosClass(0,0)

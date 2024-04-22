@@ -1,10 +1,13 @@
-import pygame #version 1.9.3
+import pygame #version 2.5.2
 import copy
 import numpy as np
 import matplotlib.image
 
 class TreeNode:
-
+	"""
+	Class for the nodes in the decision search tree.
+	Holds values about the associated positions.
+	"""
 	def __init__(self, data):
 		self.data = data
 		self.parent = None
@@ -18,7 +21,12 @@ class TreeNode:
 		self.orientation = 0
 
 class Bot:
-	
+	"""
+	Creates a search tree to view all possible moves
+	and determines which is most advantageous based off
+	evaluation.\n
+	Moves the current piece into target position.
+	"""
 	def __init__(self):
 		self.boardArr = None # current board layout in a numpy 2d array
 		self.colorMap = matplotlib.colors.LinearSegmentedColormap.from_list("custom", ["#333333", "#cc2222", "#006600", "#087700", "#108800", "#189900", "#20aa00", "#28bb00", "#30cc00", "#38dd00", "#40ff00"])
@@ -35,14 +43,19 @@ class Bot:
 		self.lineWeight = -0.193
 
 	
-	def setWeights(self):
-		self.avgHeightWeight = 0
-		self.bumpinessWeight = 0
-		self.holesWeight = 0
-		self.lineWeight = 0
+	def setWeights(self, weights : list):
+		"""Sets bot weights in order of avgHeight, bumpiness, holes, lines."""
+		self.avgHeightWeight = weights[0]
+		self.bumpinessWeight = weights[1]
+		self.holesWeight = weights[2]
+		self.lineWeight = weights[3]
 		
 
-	def updateBoard(self, blockMat, movingPiece, nextPieces, gameStatus, key, gameDisplay):
+	def update(self, blockMat, movingPiece, nextPieces, gameStatus, key):
+		"""
+		Updates various data every frame.
+		To do this, it takes in a MainBoard's blockMat, movingPiece, nextPieces, gameStatus, and key.
+		"""
 		for i in range(len(blockMat)):
 			for j in range(len(blockMat[i])):
 				if blockMat[i][j] == "empty":
@@ -57,8 +70,9 @@ class Bot:
 		self.key = key
 		self.maxTreeDepth = len(nextPieces) # 2
 
-	# Called every time a new block appears. 
+	
 	def run(self):
+		"""Called every time a new block appears."""
 		if self.gameStatus == 'running':
 			self.nextPiece = copy.deepcopy(self.movingPiece)
 			self.nextPiece.type = self.nextPieces[1]
@@ -69,7 +83,6 @@ class Bot:
 			self.createTree(None, 0)
 			self.bestNode = self.chooseBest()
 			if self.bestNode.parent != None:
-				self.prevBestNode = copy.deepcopy(self.bestNode)
 				self.bestNode = self.bestNode.parent
 					
 			# Update the target position for movement and nullify the search tree for the next call
@@ -80,8 +93,9 @@ class Bot:
 			self.boardArr[self.bestNode.coords[0]][self.bestNode.coords[1]] = 10
 			matplotlib.image.imsave('images/board.png', self.boardArr, cmap=self.colorMap)
 
-	# Moves the current piece given the target position.
+	
 	def movement(self, movingPiece):
+		"""Moves the current piece given the target position."""
 		
 		# Rotate piece if necessary
 		while self.orientation != self.bestNode.orientation:
@@ -112,8 +126,9 @@ class Bot:
 				self.key.xNav.status = 'idle'
 				self.key.down.status = 'pressed'
 	
-	# Returns a list of the column heights of the given board.
+	
 	def getColumnHeights(self, data):
+		"""Returns a list of the column heights of the given board."""
 		heights = []
 		# want to iterate through columns, so we transpose the data array
 		for row in np.transpose(data):
@@ -127,8 +142,9 @@ class Bot:
 			
 		return heights
 
-	# Creates the tree of positions recursively. First creates depth 0, then depth 1.
+	
 	def createTree(self, root, depth):
+		"""Creates the tree of positions recursively. First creates depth 0, then depth 1."""
 		
 		if depth == 2:
 			return
@@ -148,8 +164,9 @@ class Bot:
 		
 		self.searchTree = newRoot
 	
-	# Feeds piece and board state at hand into generatePosition() in all orientations.
+	
 	def createNodes(self, root, currentPiece):
+		"""Feeds piece and board state at hand into generatePosition() in all orientations."""
 
 		# Find orientation count given type of piece
 		orientations = 0
@@ -190,8 +207,9 @@ class Bot:
 			newNode.parent = root
 
 		
-	# Generates all possible positions given the piece and board state at hand.
-	def generatePosition(self, root, currentPiece): 
+	
+	def generatePosition(self, root, currentPiece):
+		"""Generates all possible positions given the piece and board state at hand."""
 		
 		targetPositions = []
 		defPositions = currentPiece.currentDef
@@ -235,8 +253,9 @@ class Bot:
 
 		return targetPositions
 	
-	# Chooses the best node in depth 2 of self.searchTree.
+	
 	def chooseBest(self):
+		"""Chooses the best node in depth 2 of self.searchTree."""
 		bestEvaluation = 10000
 		bestChild = TreeNode(None)
 
@@ -248,9 +267,12 @@ class Bot:
 		
 		return bestChild
 
-	# Evaluates a given node by assigning a score based on the following metrics:
-	# line completion, average height, bumpiness, hole count, and a previous-depth-2-selection bonus.
+	
 	def objFunc(self, node : TreeNode):
+		"""
+		Evaluates a given node by assigning a score based on the following metrics:
+		line completion, average height, bumpiness, and hole count.
+		"""
 
 		# LINE COMPLETION
 		lineCount = 0
@@ -292,9 +314,9 @@ class Bot:
 
 		return node.avgColumnHeight*self.avgHeightWeight + node.bumpiness*self.bumpinessWeight + node.holes*self.holesWeight + node.lines*self.lineWeight
 
-		
-	# Draws a simplified board, which shows the target position for the current piece.
+	
 	def drawBoard(self, gameDisplay):
+		"""Draws a simplified board, which shows the target position for the current piece."""
 		boardImage = pygame.image.load("images/board.png")
 		boardImage = pygame.transform.scale(boardImage, [100,200])
 		gameDisplay.blit(boardImage, [680, 380])
