@@ -726,14 +726,15 @@ class MovingBlock:
 class TreeNode:
 
 	def __init__(self, data):
-		self.data = data # currently numpy 2d arrays
+		self.data = data
 		self.parent = None
 		self.children = []
-		self.evaluation = 0 # i think
+		self.evaluation = 0
 		self.coords = [0,0]
 		self.avgColumnHeight = 0
 		self.bumpiness = 0
 		self.holes = 0
+		self.lines = 0
 		self.orientation = 0
 
 
@@ -743,26 +744,23 @@ class Bot:
 	def __init__(self):
 		self.boardArr = None # current board layout in a numpy 2d array
 		self.colorMap = matplotlib.colors.LinearSegmentedColormap.from_list("custom", ["#333333", "#cc2222", "#006600", "#087700", "#108800", "#189900", "#20aa00", "#28bb00", "#30cc00", "#38dd00", "#40ff00"])
-		self.priorityList = [0 for _ in range(10)]
-		self.maxIterations = 200 # maybe make static?
-		self.tabuListSize = 10 # maybe make static?
 		self.checkedPositions = [] # list of numpy 2d arrays
 		self.targetPosition = [0,0]
 		self.searchTree = None
 		self.bestNode = TreeNode(None)
 		self.orientation = 0
 
-		self.setWeights()
-
-		self.testRuns = 0
-		
-		self.prevBestNode = None
-	
-	def setWeights(self):
 		self.avgHeightWeight = 1.392
 		self.bumpinessWeight = 0.861
 		self.holesWeight = 4.540
 		self.lineWeight = -0.193
+
+	
+	def setWeights(self):
+		self.avgHeightWeight = 0
+		self.bumpinessWeight = 0
+		self.holesWeight = 0
+		self.lineWeight = 0
 		
 
 	def updateBoard(self, blockMat, movingPiece, nextPieces, gameStatus):
@@ -775,21 +773,12 @@ class Bot:
 		
 		self.boardArr = np.array(blockMat)
 		self.movingPiece = movingPiece
-		self.nextPieces = nextPieces # nextPieces[0] is current piece, nextPieces[1] is next piece, ... potential to add more 'next' pieces
+		self.nextPieces = nextPieces # nextPieces[0] is current piece, nextPieces[1] is next piece
 		self.gameStatus = gameStatus
 		self.maxTreeDepth = len(nextPieces) # 2 because you can only see current piece and next piece
 
-		avgHeightSurf = fontSmall.render(f"Avg Height: {self.bestNode.avgColumnHeight}", False, (200,200,200))
-		bumpinessSurf = fontSmall.render(f"Bumpiness: {self.bestNode.bumpiness}", False, (200, 200, 200))
-		holeSurf = fontSmall.render(f"Holes: {self.bestNode.holes}", False, (200, 200, 200))
 		evaluationSurf = fontSB.render(f"Evaluation: {self.bestNode.evaluation}", False, (200, 200, 200))
-		testRunsSurf = fontSB.render(f"Test7 Runs: {self.testRuns}", False, (200, 200, 200))
-		
-		gameDisplay.blit(avgHeightSurf, [650, 220])
-		gameDisplay.blit(bumpinessSurf, [650, 240])
-		gameDisplay.blit(holeSurf, [650, 260])
-		gameDisplay.blit(evaluationSurf, [650, 280])
-		gameDisplay.blit(testRunsSurf, [10, 300])
+		gameDisplay.blit(evaluationSurf, [600, 280])
 
 	# Called every time a new block appears. 
 	def run(self):
@@ -848,16 +837,18 @@ class Bot:
 	
 	# Returns a list of the column heights of the given board.
 	def getColumnHeights(self, data):
-		consecEmptyPerCol = [20 for _ in range(10)]
+		heights = []
 		# want to iterate through columns, so we transpose the data array
-		for i, row in enumerate(np.transpose(data)):
-			for j, cell in enumerate(row):
+		for row in np.transpose(data):
+			count = 0
+			for cell in row:
 				if cell == 0:
-					consecEmptyPerCol[i] -= 1
+					count += 1
 				else:
 					break
-	
-		return consecEmptyPerCol
+			heights.append(20 - count)
+			
+		return heights
 
 	# Creates the tree of positions recursively. First creates depth 0, then depth 1.
 	def createTree(self, root, depth):
@@ -982,55 +973,47 @@ class Bot:
 
 	# Evaluates a given node by assigning a score based on the following metrics:
 	# line completion, average height, bumpiness, hole count, and a previous-depth-2-selection bonus.
-	def objFunc(self, solution : TreeNode):
+	def objFunc(self, node : TreeNode):
 
 		# LINE COMPLETION
 		lineCount = 0
-		for i, row in enumerate(solution.data):
+		for i, row in enumerate(node.data):
 			if all(j == 1 for j in row):
 				lineCount += 1
-				solution.data = np.delete(solution.data, i, 0)
-				solution.data = np.insert(solution.data, 0, np.array((0,0,0,0,0,0,0,0,0,0)), 0) # removes lines
+				node.data = np.delete(node.data, i, 0)
+				node.data = np.insert(node.data, 0, np.array((0,0,0,0,0,0,0,0,0,0)), 0) # removes lines
 		if lineCount == 2:
 			lineCount = 2.5
 		elif lineCount == 3:
 			lineCount = 7.5
 		elif lineCount == 4:
 			lineCount = 30
+		node.lines = lineCount
 
 		# AVERAGE HEIGHT
-		self.columnHeights = self.getColumnHeights(solution.data)
-		solution.avgColumnHeight = sum(self.columnHeights) / len(self.columnHeights)
+		self.columnHeights = self.getColumnHeights(node.data)
+		node.avgColumnHeight = sum(self.columnHeights) / len(self.columnHeights)
 
 		# BUMPINESS
-		for i in range(len(self.columnHeights)):
-			if i + 1 >= len(self.columnHeights):
-				break
-			solution.bumpiness += abs(self.columnHeights[i] - self.columnHeights[i+1])
+		for i in range(len(self.columnHeights) - 1):
+			node.bumpiness += abs(self.columnHeights[i] - self.columnHeights[i+1])
 
 		# HOLES
 		holeCount = 0
-		flag = False
-		for row in np.transpose(solution.data):
+		holeCounting = False
+		for row in np.transpose(node.data):
 			for val in row:
-				
-				if val == 0 and not flag:
+				if val == 0 and not holeCounting:
 					continue
 				if val != 0:
-					flag = True
-				if val == 0 and flag:
+					holeCounting = True
+				if val == 0 and holeCounting:
 					holeCount += 1
-			flag = False
+			holeCounting = False
 		
-		solution.holes = holeCount
+		node.holes = holeCount
 
-		# PREV POSITION BONUS
-		if self.prevBestNode is not None and solution.coords == self.prevBestNode.coords and solution.orientation == self.prevBestNode.orientation:
-			prevPosBonus = 0
-		else:
-			prevPosBonus = 0
-
-		return solution.avgColumnHeight*self.avgHeightWeight + solution.bumpiness*self.bumpinessWeight + solution.holes*self.holesWeight + lineCount*self.lineWeight + prevPosBonus
+		return node.avgColumnHeight*self.avgHeightWeight + node.bumpiness*self.bumpinessWeight + node.holes*self.holesWeight + node.lines*self.lineWeight
 
 		
 	# Draws a simplified board, which shows the target position for the current piece.
@@ -1057,12 +1040,9 @@ def gameLoop():
 	mainBoard = MainBoard(blockSize,boardPosX,boardPosY,boardColNum,boardRowNum,boardLineWidth,blockLineWidth,scoreBoardWidth)	
 	
 	bot = Bot()
-	runCount = 0
 	bestTestScore = 4204300
-	testAvgHeights = []
-	testBumpiness = []
-	testHoles = []
-	testScores = []
+	
+	gameSpeed = 60
 
 	xChange = 0
 	
@@ -1156,30 +1136,9 @@ def gameLoop():
 
 			key.enter.status = 'pressed'
 
-			testAvgHeights.append(bot.avgHeightWeight)
-			testBumpiness.append(bot.bumpinessWeight)
-			testHoles.append(bot.holesWeight)
-			testScores.append(mainBoard.score)
-			
-			with open('test7-data.json') as f:
-				testData = json.load(f)
-				bot.testRuns = len(testData["score"])
-			
-			testData["avgHeight"].append(bot.avgHeightWeight)
-			testData["bumpiness"].append(bot.bumpinessWeight)
-			testData["holes"].append(bot.holesWeight)
-			testData["lines"].append(bot.lineWeight)
-			testData["score"].append(mainBoard.score)
-			
-			with open('test7-data.json', 'w') as f:
-				json.dump(testData, f)
 
-
-			bot.setRandomWeights()
-
-
-		pygame.display.update() #Pygame display update		
-		clock.tick(480) #Pygame clock tick function(60 fps)
+		pygame.display.update() #Pygame display update
+		clock.tick(gameSpeed) #Pygame clock tick function(60 fps)
 
 # Main program
 key = GameKeyInput()		
