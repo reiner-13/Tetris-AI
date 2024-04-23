@@ -1,7 +1,3 @@
-#Joseph Reiner
-#Written in Python 3.12.1
-#Tetris Bot
-
 import pygame #version 2.5.2
 import random
 import math
@@ -13,7 +9,6 @@ DISPLAY_WIDTH = 800
 DISPLAY_HEIGHT = 600
 
 gameDisplay = pygame.display.set_mode((DISPLAY_WIDTH,DISPLAY_HEIGHT))
-pygame.display.set_caption('Tetris')
 clock = pygame.time.Clock()
 
 pieceNames = ('I', 'O', 'T', 'S', 'Z', 'J', 'L')

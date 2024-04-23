@@ -1,9 +1,15 @@
+"""
+Tetris Bot
+Joseph Reiner
+Slippery Rock University
+CPSC 476 - Artificial Intelligence
+"""
+
 from tetris import *
 import sys
 import copy
 import bot
-
-# Main game loop		
+	
 def gameLoop():		
 	"""Main loop that runs the game."""
 
@@ -73,6 +79,7 @@ def gameLoop():
 		pygame.display.update() #Pygame display update
 		clock.tick(gameSpeed) #Pygame clock tick function (default is 60 fps)
 
+pygame.display.set_caption('Tetris')
 gameLoop()	
 pygame.quit()
 sys.exit()
