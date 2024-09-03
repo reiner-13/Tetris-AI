@@ -16,3 +16,5 @@ tetris-GA.py
 extra-depth-tetris.py
 test-data.json
 high-scores.txt
+__pycache__
+venv
