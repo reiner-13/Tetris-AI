@@ -1,4 +1,20 @@
 ![](https://i.imgur.com/mgKOCl1.gif)
+
+## Setup
+*Works with Python 3.12.x*
+
+1. Clone the repository on your system.
+```git clone https://github.com/reiner-13/Tetris-AI.git```
+
+2. Using Pip, install the required libraries.
+```pip install -r requirements.txt```
+
+3. To run the bot normally, use:
+```python main.py```
+
+4. To run the genetic algorithm for finding weights, edit the `ga_instance` parameters to your liking and use:
+```python mainGA.py```
+
 ## Background
 The Tetris Bot was created as a semester-long project for Artificial Intelligence (CPSC 476) at Slippery Rock University.
 
